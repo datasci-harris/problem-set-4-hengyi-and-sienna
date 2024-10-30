@@ -1,0 +1,155 @@
+---
+title: "Problem Set 4"
+author: "Partner1: Sienna Wang, Partner2: Hengyi Xing"
+date: "October 28, 2024"
+format: 
+  pdf:
+    keep-tex: true
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+include-before-body:
+  text: |
+    \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
+      showspaces = false,
+      showtabs = false,
+      breaksymbolleft={},
+      breaklines
+    }
+execute:
+  eval: true
+  echo: true
+  warning: false
+---
+
+**PS4:** Due Sat Nov 2 at 5:00PM Central. Worth 100 points. 
+
+## Style Points (10 pts)
+
+## Submission Steps (10 pts)
+```{python}
+# Set up
+import pandas as pd
+import altair as alt
+alt.renderers.enable("png")
+```
+
+# Download and explore the Provider of Services (POS) file (10 pts)
+
+## 1.  
+We will use `PRVDR_CTGRY_SBTYP_CD` and `PRVDR_CTGRY_CD` to focus on short-term hospitals, `PRVDR_NUM` (CMS certification number) to identify unique hospitals, `PGM_TRMNTN_CD` to identify hospitals that are suspected to have closed, `FAC_NAME` to get the facility name, and `ZIP_CD` to get the ZIP.  
+  
+## 2. (a)  
+```{python}
+# To import pos2016
+path = "/Users/wangshiying/Documents/71_Python_Programming_II/problem-set-4-hengyi-and-sienna"
+file = "/data/pos2016.csv"
+
+df_pos2016 = pd.read_csv(path + file)
+
+# To focus on short-term hospitals
+df_2016 = df_pos2016[(df_pos2016["PRVDR_CTGRY_SBTYP_CD"] == 1)
+                     & (df_pos2016["PRVDR_CTGRY_CD"] == 1)]
+
+# To count the observations
+len(df_2016)
+```
+
+Therefore, 7,245 hospitals are reported in the data.
+
+## 2. (b)  
+This number seems to be a bit too large. From [Definite Healthcare](https://www.definitivehc.com/blog/how-many-hospitals-are-in-the-us), there are only 3,873 short-term hospitals in the US in 2024. And by American Hospital Association, the total number of all US hospitals is 6,120 in [2024](https://www.aha.org/statistics/fast-facts-us-hospitals) and only 5,534 in [2016](https://www.aha.org/statistics/2018-01-09-fast-facts-us-hospitals-2018-pie-charts).  
+We can find from the above information that the number of short-term hospitals we get from our dataset is even larger than the total number of hospitals in the US. As for reasons, firstly, the dataset might include multiple entries for the same hospital, such as separate records for different departments or units within the same facility (there are only 6770 different facility names). Secondly, CMS may categorize certain facilities as "short-term hospitals" even if they wouldn’t be considered standalone hospitals in AHA or other national data.
+
+## 3. 
+```{python}
+# To import datasets
+file = "/data/pos2017.csv"
+df_pos2017 = pd.read_csv(path + file)
+file = "/data/pos2018.csv"
+df_pos2018 = pd.read_csv(path + file, encoding="ISO-8859-1")
+file = "/data/pos2019.csv"
+df_pos2019 = pd.read_csv(path + file, encoding="ISO-8859-1")
+
+# To focus on short-term hospitals
+df_2017 = df_pos2017[(df_pos2017["PRVDR_CTGRY_SBTYP_CD"] == 1)
+                     & (df_pos2017["PRVDR_CTGRY_CD"] == 1)]
+df_2018 = df_pos2018[(df_pos2018["PRVDR_CTGRY_SBTYP_CD"] == 1)
+                     & (df_pos2018["PRVDR_CTGRY_CD"] == 1)]
+df_2019 = df_pos2019[(df_pos2019["PRVDR_CTGRY_SBTYP_CD"] == 1)
+                     & (df_pos2019["PRVDR_CTGRY_CD"] == 1)]
+
+# To append them together
+df_2016["YEAR"] = 2016
+df_2017["YEAR"] = 2017
+df_2018["YEAR"] = 2018
+df_2019["YEAR"] = 2019
+df = pd.concat([df_2016, df_2017, df_2018, df_2019], axis=0, ignore_index=True)
+
+# Plot the number of observations by year
+alt.data_transformers.enable("vegafusion")
+alt.Chart(df).mark_bar(size=40).encode(
+    alt.X("YEAR:O", title="Year", axis=alt.Axis(labelAngle=0)),
+    alt.Y("count()", title="Number of Observations", scale=alt.Scale(domain=(7000, 7400))) # Set domain to make the trend more obvious
+).properties(
+  width = 500,
+  height = 180
+)
+```
+
+## 4. (a)
+```{python}
+# Find the number of unique hospitals
+unique_number_by_year = df.groupby("YEAR")["PRVDR_NUM"].nunique().reset_index()
+
+# Plot the number of unique hospitals
+alt.Chart(df).mark_bar(size=40).encode(
+    alt.X("YEAR:O", title="Year", axis=alt.Axis(labelAngle=0)),
+    alt.Y("distinct(PRVDR_NUM):Q", title="Number of Unique Observations", scale=alt.Scale(domain=(7000, 7400))) # Set domain to make the trend more obvious
+).properties(
+  width = 500,
+  height = 180
+)
+```
+## 4. (b)
+Comparing this with the previous step, we can find that there is no obvious difference. We can learn that in this dataset, each record represents one distinct hospital. Also, it implies that each CMS certification number appears multiple times over years. Therefore, this is an unbalanced panel dataset.
+
+# Identify hospital closures in POS file (15 pts) (*)
+
+1. 
+2. 
+3. 
+    a.
+    b.
+    c.
+
+## Download Census zip code shapefile (10 pt) 
+
+1. 
+    a.
+    b. 
+2. 
+
+## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
+
+1. 
+2. 
+3. 
+4. 
+    a.
+    b.
+    c.
+5. 
+    a.
+    b.
+    c.
+    
+## Effects of closures on access in Texas (15 pts)
+
+1. 
+2. 
+3. 
+4. 
+
+## Reflecting on the exercise (10 pts) 
