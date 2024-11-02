@@ -43,7 +43,7 @@ We will use `PRVDR_CTGRY_SBTYP_CD` and `PRVDR_CTGRY_CD` to focus on short-term h
 ## 2. (a)  
 ```{python}
 # To import pos2016
-path = "/Users/wangshiying/Documents/71_Python_Programming_II/problem-set-4-hengyi-and-sienna"
+path = "/Users/hengyix/Documents/GitHub/problem-set-4-hengyi-and-sienna"
 file = "/data/pos2016.csv"
 
 df_pos2016 = pd.read_csv(path + file)
@@ -117,12 +117,95 @@ Comparing this with the previous step, we can find that there is no obvious diff
 
 # Identify hospital closures in POS file (15 pts) (*)
 
-1. 
-2. 
-3. 
-    a.
-    b.
-    c.
+## 1. 
+```{python}
+# Find active facilities in each year
+active_2016 = (df_2016[df_2016['PGM_TRMNTN_CD'] == 0]
+              [['PRVDR_NUM', 'FAC_NAME', 'ZIP_CD']].reset_index(drop=True))
+active_2017 = (df_2017[df_2017['PGM_TRMNTN_CD'] == 0]
+              [['PRVDR_NUM', 'FAC_NAME', 'ZIP_CD']].reset_index(drop=True))
+active_2018 = (df_2018[df_2018['PGM_TRMNTN_CD'] == 0]
+              [['PRVDR_NUM', 'FAC_NAME', 'ZIP_CD']].reset_index(drop=True))
+active_2019 = (df_2019[df_2019['PGM_TRMNTN_CD'] == 0]
+              [['PRVDR_NUM', 'FAC_NAME', 'ZIP_CD']].reset_index(drop=True))
+
+
+# Define a function to identify suspected closure in each year
+def find_closed_facilities(active_year_before, active_year_after, year):
+    '''
+    Identify records in one year yet missing in the next year, using merge. 
+    Input arguments are two dataframes above and the suspected closure year.
+    '''
+    result = pd.merge(active_year_before, active_year_after, 
+                      on=['PRVDR_NUM'], how='outer', indicator=True)
+    result = result[result['_merge'] == 'left_only']
+    result['SUS_YEAR'] = year
+    return result
+
+
+# Apply to each year from 2017 to 2019
+closed_2017 = find_closed_facilities(active_2016, active_2017, 2017)
+closed_2018 = find_closed_facilities(active_2017, active_2018, 2018)
+closed_2019 = find_closed_facilities(active_2018, active_2019, 2019)
+# Concatenate all closed facilities into one DataFrame
+closed_2016_to_2019 = pd.concat([closed_2017, closed_2018, closed_2019])
+closed_count = len(closed_2016_to_2019)
+print(closed_count, 
+      'facilities active in 2016 were suspected to have closed by 2019.')   
+```
+
+## 2. 
+```{python}
+# Modify the column name to FAC_NAME
+closed_2016_to_2019['FAC_NAME'] = closed_2016_to_2019['FAC_NAME_x']
+print(closed_2016_to_2019[['FAC_NAME', 'SUS_YEAR']]
+      .sort_values('FAC_NAME', ignore_index=True).head(10))
+
+```
+
+## 3. (a)
+```{python}
+# Check the suspected closure in 2017
+zip_closed_2017 = closed_2017['ZIP_CD_x'].tolist()
+ma_zip_2017 = []
+for zip_code in zip_closed_2017:
+  zip_count_2016 = len(active_2016[active_2016['ZIP_CD'] == zip_code])
+  zip_count_2018 = len(active_2018[active_2018['ZIP_CD'] == zip_code])
+  if zip_count_2016 <= zip_count_2018:
+    ma_zip_2017.append(zip_code)
+ma_2017 = closed_2017[closed_2017['ZIP_CD_x'].isin(ma_zip_2017)]
+
+# Check the suspected closure in 2018
+zip_closed_2018 = closed_2018['ZIP_CD_x'].tolist()
+ma_zip_2018 = []
+for zip_code in zip_closed_2018:
+  zip_count_2017 = len(active_2017[active_2017['ZIP_CD'] == zip_code])
+  zip_count_2019 = len(active_2019[active_2019['ZIP_CD'] == zip_code])
+  if zip_count_2017 <= zip_count_2019:
+    ma_zip_2018.append(zip_code)
+ma_2018 = closed_2018[closed_2018['ZIP_CD_x'].isin(ma_zip_2018)]
+
+ma_2017_2018 = pd.concat([ma_2017, ma_2018])
+ma_count = len(ma_2017_2018)
+print(ma_count, 'facilities fit the definition.')  
+```
+
+## 3. (b)
+```{python}
+left_count = closed_count - ma_count
+print(left_count, 'hospitals are left.')
+```
+
+## 3. (c)
+```{python}
+# Remove ma_2017_2018 from closed_2016_to_2019
+combined = pd.concat([closed_2016_to_2019, ma_2017_2018])
+corrected_closed = combined.drop_duplicates(keep=False)
+# Modify the column name to ZIP_CD
+corrected_closed['ZIP_CD'] = corrected_closed['ZIP_CD_x']
+print(corrected_closed[['FAC_NAME', 'ZIP_CD', 'SUS_YEAR']]
+      .sort_values('FAC_NAME', ignore_index=True).head(10))
+```
 
 ## Download Census zip code shapefile (10 pt) 
 
