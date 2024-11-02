@@ -131,7 +131,7 @@ active_2019 = (df_2019[df_2019['PGM_TRMNTN_CD'] == 0]
 
 
 # Define a function to identify suspected closure in each year
-def find_closed_facilities(active_year_before, active_year_after, year):
+def find_closed_facilities(active_year_before, active_year_after):
     '''
     Identify records in one year yet missing in the next year, using merge. 
     Input arguments are two dataframes above and the suspected closure year.
@@ -139,15 +139,23 @@ def find_closed_facilities(active_year_before, active_year_after, year):
     result = pd.merge(active_year_before, active_year_after, 
                       on=['PRVDR_NUM'], how='outer', indicator=True)
     result = result[result['_merge'] == 'left_only']
-    result['SUS_YEAR'] = year
     return result
 
 
 # Apply to each year from 2017 to 2019
-closed_2017 = find_closed_facilities(active_2016, active_2017, 2017)
-closed_2018 = find_closed_facilities(active_2017, active_2018, 2018)
-closed_2019 = find_closed_facilities(active_2018, active_2019, 2019)
-# Concatenate all closed facilities into one DataFrame
+closed_2017 = find_closed_facilities(active_2016, active_2017)
+closed_2018 = find_closed_facilities(active_2016, active_2018)
+closed_2019 = find_closed_facilities(active_2016, active_2019)
+
+# Rectify 2018 and 2019 data to include only the exact year
+closed_2018 = pd.concat([closed_2017, closed_2018]).drop_duplicates(keep=False)
+closed_2019 = pd.concat([closed_2017, closed_2019]).drop_duplicates(keep=False)
+closed_2019 = pd.concat([closed_2018, closed_2019]).drop_duplicates(keep=False)
+closed_2017['SUS_YEAR'] = 2017
+closed_2018['SUS_YEAR'] = 2018
+closed_2019['SUS_YEAR'] = 2019
+
+# Connect all three years together
 closed_2016_to_2019 = pd.concat([closed_2017, closed_2018, closed_2019])
 closed_count = len(closed_2016_to_2019)
 print(closed_count, 
@@ -169,9 +177,9 @@ print(closed_2016_to_2019[['FAC_NAME', 'SUS_YEAR']]
 zip_closed_2017 = closed_2017['ZIP_CD_x'].tolist()
 ma_zip_2017 = []
 for zip_code in zip_closed_2017:
-  zip_count_2016 = len(active_2016[active_2016['ZIP_CD'] == zip_code])
+  zip_count_2017 = len(active_2017[active_2017['ZIP_CD'] == zip_code])
   zip_count_2018 = len(active_2018[active_2018['ZIP_CD'] == zip_code])
-  if zip_count_2016 <= zip_count_2018:
+  if zip_count_2017 <= zip_count_2018:
     ma_zip_2017.append(zip_code)
 ma_2017 = closed_2017[closed_2017['ZIP_CD_x'].isin(ma_zip_2017)]
 
@@ -179,9 +187,9 @@ ma_2017 = closed_2017[closed_2017['ZIP_CD_x'].isin(ma_zip_2017)]
 zip_closed_2018 = closed_2018['ZIP_CD_x'].tolist()
 ma_zip_2018 = []
 for zip_code in zip_closed_2018:
-  zip_count_2017 = len(active_2017[active_2017['ZIP_CD'] == zip_code])
+  zip_count_2018 = len(active_2018[active_2018['ZIP_CD'] == zip_code])
   zip_count_2019 = len(active_2019[active_2019['ZIP_CD'] == zip_code])
-  if zip_count_2017 <= zip_count_2019:
+  if zip_count_2018 <= zip_count_2019:
     ma_zip_2018.append(zip_code)
 ma_2018 = closed_2018[closed_2018['ZIP_CD_x'].isin(ma_zip_2018)]
 
