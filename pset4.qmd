@@ -33,6 +33,8 @@ execute:
 import pandas as pd
 import altair as alt
 alt.renderers.enable("png")
+import geopandas as gpd
+import matplotlib.pyplot as plt
 ```
 
 # Download and explore the Provider of Services (POS) file (10 pts)
@@ -215,12 +217,48 @@ print(corrected_closed[['FAC_NAME', 'ZIP_CD', 'SUS_YEAR']]
       .sort_values('FAC_NAME', ignore_index=True).head(10))
 ```
 
-## Download Census zip code shapefile (10 pt) 
+# Download Census zip code shapefile (10 pt) 
 
-1. 
-    a.
-    b. 
-2. 
+## 1. (a)
+-  **`.shp`** is the shape file storing geometric data, such as points, lines, or polygons.  
+-  **`.shx`** is an index file for quick access to `.shp` records.  
+-  **`.dbf`** holds attribute data related to each geographic feature.  
+-  **`.prj`** defines the coordinate system and map projection for accurate spatial representation.
+-  **`.xml`** contains metadata describing the dataset's content, source, and creation details.  
+
+## 1. (b)
+After unzipping, `.shp` file is 837.5 MB, `.shx` file is 265 KB, `.dbf` file is 6.4 MB, `.prj` file is 165 bytes, and `.xml` file is 16 KB.
+
+## 2. 
+```{python}
+file = "/data/gz_2010_us_860_00_500k.shp"
+gdf_whole = gpd.read_file(path + file)
+```
+It can be found that for TX, the first 3 digits of ZIP code should be 750-799.
+```{python}
+# Filter the geodataframe for TX
+gdf = gdf_whole[gdf_whole["ZCTA5"].str.startswith(
+    ("75", "76", "77", "78", "79"))]
+
+# Count the number of hospitals by ZIP code
+hospitals_number = df_2016.groupby("ZIP_CD")["PRVDR_NUM"].count().reset_index()
+hospitals_number.columns = ["ZCTA5", "COUNTS"]
+
+# Merge into the geodataframe
+gdf["ZCTA5"] = pd.to_numeric(gdf["ZCTA5"])
+gdf = gdf.merge(hospitals_number, on="ZCTA5", how="left").fillna(0)
+
+# Make the plot
+ax = gdf.plot(column="COUNTS",
+         cmap="Blues", linewidth=0,
+         legend=True,
+         legend_kwds={"label": "Number of Hospitals"}
+         )
+cbar = ax.get_figure().get_axes()[-1]
+cbar.spines[:].set_visible(False)
+plt.axis("off")
+plt.show()
+```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
