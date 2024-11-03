@@ -35,6 +35,7 @@ import altair as alt
 alt.renderers.enable("png")
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import time 
 ```
 
 # Download and explore the Provider of Services (POS) file (10 pts)
@@ -231,7 +232,7 @@ After unzipping, `.shp` file is 837.5 MB, `.shx` file is 265 KB, `.dbf` file is 
 
 ## 2. 
 ```{python}
-file = "/data/gz_2010_us_860_00_500k.shp"
+file = "/data/gz_2010_us_860_00_500k/gz_2010_us_860_00_500k.shp"
 gdf_whole = gpd.read_file(path + file)
 ```
 It can be found that for TX, the first 3 digits of ZIP code should be 750-799.
@@ -262,18 +263,127 @@ plt.show()
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
-1. 
-2. 
-3. 
-4. 
-    a.
-    b.
-    c.
-5. 
-    a.
-    b.
-    c.
-    
+## 1. 
+```{python}
+gdf_whole['centroid'] = gdf_whole.centroid
+zips_all_centroids = gdf_whole[['ZCTA5', 'centroid']]
+print(zips_all_centroids.shape)
+print('We have 33120 rows and 2 columns. ZCTA5 is the postal zip codes of districts in the U.S.')
+print('ZCTA5 is the approximate postal zip codes of districts in the U.S..')
+print('''Centroid represents the position of center point of the area covered by a specific zip code 
+in the Geographic Coordinate System: GCS_North_American_1983, 
+with Datum being D_North_American_1983 and GRS_1980 spheroid and Greenwich prime meridian.''')
+```
+
+## 2. 
+```{python}
+zips_texas_centroids = (zips_all_centroids[zips_all_centroids['ZCTA5']
+                        .str.startswith(("75", "76", "77", "78", "79"))])
+zip_texas = zips_texas_centroids['ZCTA5'].nunique()
+print(f'{zip_texas} unique zip codes in zips_texas_centroids.')
+# States boadering Texas: 
+# New Mexico: 870-884
+# Oklahoma: 73-74
+# Arkansas: 716-729
+# Louisiana: 700-715
+# Texas: 75 - 79
+# Combined: 70-79, 870-884
+prefixes_70_to_79 = [f"{i}" for i in range(70, 80)]
+prefixes_870_to_884 = [f"{i}" for i in range(870, 885)]
+prefixes_tuple = tuple(prefixes_70_to_79 + prefixes_870_to_884)
+zips_texas_borderstates_centroids = (zips_all_centroids[zips_all_centroids['ZCTA5']
+                        .str.startswith(prefixes_tuple)])
+zip_boarders = zips_texas_borderstates_centroids['ZCTA5'].nunique()
+print(f'{zip_boarders} unique zip codes in zips_texas_borderstates_centroids.')
+```
+
+## 3. 
+```{python}
+zips_texas_borderstates_centroids["ZCTA5"] = pd.to_numeric(zips_texas_borderstates_centroids["ZCTA5"])
+zips_withhospital_centroids = pd.merge(zips_texas_borderstates_centroids, active_2016, 
+                                      left_on='ZCTA5', right_on='ZIP_CD', how='inner', indicator=True
+                                      ).drop_duplicates('ZCTA5')
+zips_withhospital_centroids = zips_withhospital_centroids[['ZCTA5', 'centroid']]
+print('''I did inner merge, on ZCTA5 in zips_texas_borderstates_centroidsand ZIP_CD in active_2016, 
+zip codes in the two dataframes.''')                                     
+```
+
+## 4. (a)
+```{python}
+# Sample
+start_time = time.time()
+sample_zip = zips_texas_centroids.head(10)
+sample_zip = sample_zip.set_geometry('centroid')
+zips_withhospital_centroids = zips_withhospital_centroids.set_geometry('centroid')
+join_to_hospital_sample = gpd.sjoin_nearest(
+    sample_zip,  
+    zips_withhospital_centroids,
+    how='inner',
+    distance_col="distance"
+)
+end_time = time.time()
+print(f'It took {end_time - start_time} seconds.')
+print(f'Full merge is expected to take {(end_time - start_time) * (1935/10)} seconds.')
+```
+
+## 4. (b)
+```{python}
+# Full data
+start_time = time.time()
+zips_texas_centroids = zips_texas_centroids.set_geometry('centroid')
+join_to_hospital_full = gpd.sjoin_nearest(
+    zips_texas_centroids,  
+    zips_withhospital_centroids,
+    how='inner',
+    distance_col="distance"
+)
+end_time = time.time()
+print(f'It took {end_time - start_time} seconds.')
+print('The actual time taken is far more shorter than estimated.')
+```
+
+## 4. (c)
+From the .prj file, we can see that the unit is specified in degrees. The UNIT parameter is defined as "Degree",0.017453292519943295, so the unit of this coordinate system is a degree, of latitude and longitude. One degree equals approximately 69 miles.
+
+## 5. 
+```{python}
+avg_distance = join_to_hospital_full['distance'].mean()
+print(avg_distance)
+```
+
+## 5. (a) 
+It is in degrees. <br>
+
+## 5. (b) 
+```{python}
+avg_distance = join_to_hospital_full['distance'].mean()
+avg_distance_mile = avg_distance * 69
+print(f'The average distance in miles is {avg_distance_mile:.2f} miles.')
+```
+
+This result makes sense because according to info page provided, the number of rural hospital closures has increased significantly in recent years. Since Texas is a state where a substantial share of population living in relatively remote rural areas, it is possible that the average distance to hospital is relatively long. <br>
+
+## 5. (c) 
+```{python}
+# Merge polygons back to join data
+join_to_hospital_full['ZCTA5_left'] = join_to_hospital_full['ZCTA5_left'].astype(str)
+gdf['ZCTA5'] = gdf['ZCTA5'].astype(str)
+merged_gdf = pd.merge(join_to_hospital_full, gdf[['ZCTA5', 'geometry']],      left_on='ZCTA5_left', right_on='ZCTA5')
+merged_gdf['distance'] = merged_gdf['distance'] * 69
+merged_gdf = merged_gdf.set_geometry('geometry')
+
+# Form the plot
+fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+plot = merged_gdf.plot(column='distance', cmap='YlGnBu', legend=True, 
+                      legend_kwds={'label': 'Distance to Nearest Hospital (miles)', 'orientation': "vertical", 
+                      'format': '%.2f'}, ax=ax)
+ax.set_title('Texas ZIP Codes by Distance to Nearest Hospital', fontsize=15, pad=15)
+ax.set_axis_off()
+
+plt.show()
+```
+
+
 ## Effects of closures on access in Texas (15 pts)
 
 1. 
