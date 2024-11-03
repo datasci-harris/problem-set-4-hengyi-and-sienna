@@ -23,7 +23,9 @@ execute:
   warning: false
 ---
 
-**PS4:** Due Sat Nov 2 at 5:00PM Central. Worth 100 points. 
+1. This submission is our work alone and complies with the 30538 integrity policy. HX & SW  
+2. I have uploaded the names of anyone I worked with on the problem set **[here](https://docs.google.com/forms/d/1-zzHx762odGlpVWtgdIC55vqF-j3gqdAp6Pno1rIGK0/edit)**. HX & SW  
+3. Late coins used this pset: 1. Late coins left after submission: 2 
 
 ## Style Points (10 pts)
 
@@ -298,10 +300,11 @@ ax = gdf.plot(column="COUNTS",
          cmap="Blues",
          legend=True,
          legend_kwds={"label": "Number of Hospitals"},
-         linewidth=0,
+         linewidth=0.1,
+         edgecolor="grey",
          ax=ax
          )
-ax.set_title("TX by ZIP codes by Number of Active Hospitals")
+ax.set_title("Texas ZIP codes by Number of Active Hospitals")
 cbar = ax.get_figure().get_axes()[-1]
 cbar.spines[:].set_visible(False)
 plt.axis("off")
@@ -538,6 +541,12 @@ plt.show()
 
 # Reflecting on the exercise (10 pts) 
 ## 1.
+The "first-pass" method can lead to several issues:  
+-  Overly Simplistic Comparison: In a true closure scenario, the number of active hospitals in the closure year already decreases. Therefore, even if the active hospital count in the year after is larger or equal to the closure year, it is natural and doesn’t necessarily indicate a merger/acquisition.  
+-  Inability to Confirm 2019 Closures: This method doesn’t allow us to confirm for 2019 closures because we lack data for the following year. As a result, this will misidentify mergers and overestimate closures.  
+-  False Flags Due to New Openings: In cases where a hospital truly closes but a new facility opens in the same zip code the following year, this method would incorrectly suggest that the closure was a merger/acquisition. This results in a misclassification of genuine closures, especially in areas with frequent new hospital openings.  
+To do a better job at confirming closures, firstly, for each facility that is no longer active, a closer inspection of the termination code would help clarify whether the hospital ceased operations due to closure or some other reason. Also, we can utilize additional databases or state health department records to validate closure status, especially for hospitals with ambiguous termination codes. Besides, using longitudinal data to track hospitals over multiple years would also be helpful.
+
 
 ## 2.
 The definitions of directly and indirectly affected areas make sense, as local closures have an immediate impact that diminishes over distance, thus indirectly affecting nearby areas. <br>
