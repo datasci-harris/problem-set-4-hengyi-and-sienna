@@ -36,6 +36,7 @@ alt.renderers.enable("png")
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import time 
+from matplotlib.colors import ListedColormap
 ```
 
 # Download and explore the Provider of Services (POS) file (10 pts)
@@ -46,7 +47,8 @@ We will use `PRVDR_CTGRY_SBTYP_CD` and `PRVDR_CTGRY_CD` to focus on short-term h
 ## 2. (a)  
 ```{python}
 # To import pos2016
-path = "/Users/hengyix/Documents/GitHub/problem-set-4-hengyi-and-sienna"
+path = ('/Users/wangshiying/Documents/71_Python_Programming_II/'
+        'problem-set-4-hengyi-and-sienna')
 file = "/data/pos2016.csv"
 
 df_pos2016 = pd.read_csv(path + file)
@@ -59,10 +61,10 @@ df_2016 = df_pos2016[(df_pos2016["PRVDR_CTGRY_SBTYP_CD"] == 1)
 len(df_2016)
 ```
 
-Therefore, 7,245 hospitals are reported in the data.
+Therefore, 7,245 hospitals are reported in the data. This number seems a bit larger than expected.
 
 ## 2. (b)  
-This number seems to be a bit too large. From [Definite Healthcare](https://www.definitivehc.com/blog/how-many-hospitals-are-in-the-us), there are only 3,873 short-term hospitals in the US in 2024. And by American Hospital Association, the total number of all US hospitals is 6,120 in [2024](https://www.aha.org/statistics/fast-facts-us-hospitals) and only 5,534 in [2016](https://www.aha.org/statistics/2018-01-09-fast-facts-us-hospitals-2018-pie-charts).  
+From [Definite Healthcare](https://www.definitivehc.com/blog/how-many-hospitals-are-in-the-us), there are only 3,873 short-term hospitals in the US in 2024. And by American Hospital Association, the total number of all US hospitals is 6,120 in [2024](https://www.aha.org/statistics/fast-facts-us-hospitals) and only 5,534 in [2016](https://www.aha.org/statistics/2018-01-09-fast-facts-us-hospitals-2018-pie-charts).  
 We can find from the above information that the number of short-term hospitals we get from our dataset is even larger than the total number of hospitals in the US. As for reasons, firstly, the dataset might include multiple entries for the same hospital, such as separate records for different departments or units within the same facility (there are only 6770 different facility names). Secondly, CMS may categorize certain facilities as "short-term hospitals" even if they wouldn’t be considered standalone hospitals in AHA or other national data.
 
 ## 3. 
@@ -175,6 +177,7 @@ print(closed_2016_to_2019[['FAC_NAME', 'SUS_YEAR']]
 ```
 
 ## 3. (a)
+Firstly, check whether the closure is a potential merger/acquisition by a simple "non-decrease" approach.
 ```{python}
 # Check the suspected closure in 2017
 zip_closed_2017 = closed_2017['ZIP_CD_x'].tolist()
@@ -196,25 +199,64 @@ for zip_code in zip_closed_2018:
     ma_zip_2018.append(zip_code)
 ma_2018 = closed_2018[closed_2018['ZIP_CD_x'].isin(ma_zip_2018)]
 
-ma_2017_2018 = pd.concat([ma_2017, ma_2018])
-ma_count = len(ma_2017_2018)
-print(ma_count, 'facilities fit the definition.')  
+ma_2017_2018_a = pd.concat([ma_2017, ma_2018])
+ma_count_a = len(ma_2017_2018_a)
+print(f'By a simple "non-decrease" approach, {ma_count_a} facilities fit the definition.')  
+```
+Secondly, by further consideration, it is reasonable to remove records where the number of hospitals is still 0 in the year after. These ZIP codes experienced "non-decrease", but there is no hospitals reappear in the year after.
+```{python}
+# Check the suspected closure in 2017
+zip_closed_2017 = closed_2017['ZIP_CD_x'].tolist()
+ma_zip_2017 = []
+for zip_code in zip_closed_2017:
+  zip_count_2017 = len(active_2017[active_2017['ZIP_CD'] == zip_code])
+  zip_count_2018 = len(active_2018[active_2018['ZIP_CD'] == zip_code])
+  if (zip_count_2017 <= zip_count_2018) & (zip_count_2018 != 0):
+    ma_zip_2017.append(zip_code)
+ma_2017 = closed_2017[closed_2017['ZIP_CD_x'].isin(ma_zip_2017)]
+
+# Check the suspected closure in 2018
+zip_closed_2018 = closed_2018['ZIP_CD_x'].tolist()
+ma_zip_2018 = []
+for zip_code in zip_closed_2018:
+  zip_count_2018 = len(active_2018[active_2018['ZIP_CD'] == zip_code])
+  zip_count_2019 = len(active_2019[active_2019['ZIP_CD'] == zip_code])
+  if (zip_count_2018 <= zip_count_2019) & (zip_count_2019 != 0):
+    ma_zip_2018.append(zip_code)
+ma_2018 = closed_2018[closed_2018['ZIP_CD_x'].isin(ma_zip_2018)]
+
+ma_2017_2018_b = pd.concat([ma_2017, ma_2018])
+ma_count_b = len(ma_2017_2018_b)
+print(f'Removing ZIP codes with no hospitals reappearing, {ma_count_b} facilities fit the definition.')  
 ```
 
 ## 3. (b)
 ```{python}
-left_count = closed_count - ma_count
-print(left_count, 'hospitals are left.')
+left_count = closed_count - ma_count_a
+print(f'By a simple "non-decrease" approach, {left_count} hospitals are left.')
+left_count = closed_count - ma_count_b
+print(f'Take ZIP codes with no hospitals reappearing into consideration, {left_count} hospitals are left.')
 ```
 
 ## 3. (c)
+Without considering ZIP codes with no hospitals reappearing, the table is shown below:
 ```{python}
 # Remove ma_2017_2018 from closed_2016_to_2019
-combined = pd.concat([closed_2016_to_2019, ma_2017_2018])
-corrected_closed = combined.drop_duplicates(keep=False)
+combined = pd.concat([closed_2016_to_2019, ma_2017_2018_a])
+corrected_closed = combined.drop_duplicates('PRVDR_NUM', keep=False)
 # Modify the column name to ZIP_CD
 corrected_closed['ZIP_CD'] = corrected_closed['ZIP_CD_x']
-print(corrected_closed[['FAC_NAME', 'ZIP_CD', 'SUS_YEAR']]
+print(corrected_closed[['FAC_NAME', 'SUS_YEAR']]
+      .sort_values('FAC_NAME', ignore_index=True).head(10))
+```
+Take ZIP codes with no hospitals reappearing into consideration, the table is shown below:
+```{python}
+# Remove ma_2017_2018 from closed_2016_to_2019
+combined = pd.concat([closed_2016_to_2019, ma_2017_2018_b])
+corrected_closed = combined.drop_duplicates('PRVDR_NUM',keep=False)
+# Modify the column name to ZIP_CD
+corrected_closed['ZIP_CD'] = corrected_closed['ZIP_CD_x']
+print(corrected_closed[['FAC_NAME', 'SUS_YEAR']]
       .sort_values('FAC_NAME', ignore_index=True).head(10))
 ```
 
@@ -250,18 +292,23 @@ gdf["ZCTA5"] = pd.to_numeric(gdf["ZCTA5"])
 gdf = gdf.merge(hospitals_number, on="ZCTA5", how="left").fillna(0)
 
 # Make the plot
+fig, ax = plt.subplots(figsize=(12, 12))
+
 ax = gdf.plot(column="COUNTS",
-         cmap="Blues", linewidth=0,
+         cmap="Blues",
          legend=True,
-         legend_kwds={"label": "Number of Hospitals"}
+         legend_kwds={"label": "Number of Hospitals"},
+         linewidth=0,
+         ax=ax
          )
+ax.set_title("TX by ZIP codes by Number of Active Hospitals")
 cbar = ax.get_figure().get_axes()[-1]
 cbar.spines[:].set_visible(False)
 plt.axis("off")
 plt.show()
 ```
 
-## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
+# Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 ## 1. 
 ```{python}
@@ -270,9 +317,7 @@ zips_all_centroids = gdf_whole[['ZCTA5', 'centroid']]
 print(zips_all_centroids.shape)
 print('We have 33120 rows and 2 columns. ZCTA5 is the postal zip codes of districts in the U.S.')
 print('ZCTA5 is the approximate postal zip codes of districts in the U.S..')
-print('''Centroid represents the position of center point of the area covered by a specific zip code 
-in the Geographic Coordinate System: GCS_North_American_1983, 
-with Datum being D_North_American_1983 and GRS_1980 spheroid and Greenwich prime meridian.''')
+print('''Centroid represents the position of center point of the area covered by a specific zip code in the Geographic Coordinate System: GCS_North_American_1983, with Datum being D_North_American_1983 and GRS_1980 spheroid and Greenwich prime meridian.''')
 ```
 
 ## 2. 
@@ -304,8 +349,7 @@ zips_withhospital_centroids = pd.merge(zips_texas_borderstates_centroids, active
                                       left_on='ZCTA5', right_on='ZIP_CD', how='inner', indicator=True
                                       ).drop_duplicates('ZCTA5')
 zips_withhospital_centroids = zips_withhospital_centroids[['ZCTA5', 'centroid']]
-print('''I did inner merge, on ZCTA5 in zips_texas_borderstates_centroidsand ZIP_CD in active_2016, 
-zip codes in the two dataframes.''')                                     
+print('''I did inner merge, on ZCTA5 in zips_texas_borderstates_centroidsand ZIP_CD in active_2016, zip codes in the two dataframes.''')                                     
 ```
 
 ## 4. (a)
@@ -344,6 +388,10 @@ print('The actual time taken is far more shorter than estimated.')
 
 ## 4. (c)
 From the .prj file, we can see that the unit is specified in degrees. The UNIT parameter is defined as "Degree",0.017453292519943295, so the unit of this coordinate system is a degree, of latitude and longitude. One degree equals approximately 69 miles.
+```{python}
+# Convert degrees into miles
+join_to_hospital_full['distance_miles'] = join_to_hospital_full['distance'] * 69
+```
 
 ## 5. 
 ```{python}
@@ -384,11 +432,109 @@ plt.show()
 ```
 
 
-## Effects of closures on access in Texas (15 pts)
+# Effects of closures on access in Texas (15 pts)
 
-1. 
-2. 
-3. 
+## 1. 
+Here we will use the further cleaned dataset of corrected closure which takes ZIP codes with no hospitals reappearing into consideration. (Another version is by simple non-decrease approach, resulting in a corrected closure of 77 hospitals.)
+```{python}
+zip_vs_counts = corrected_closed.groupby(
+    "ZIP_CD").size().reset_index(name="Closure_Count")
+# Restrict to Texas
+zip_vs_counts["ZIP_CD"] = zip_vs_counts["ZIP_CD"].astype(int).astype(str)
+zip_vs_counts = zip_vs_counts[
+    zip_vs_counts["ZIP_CD"].str.startswith(("75", "76", "77", "78", "79"))
+].reset_index(drop=True)
+zip_vs_counts
+```
+## 2. 
+For the choropleth:
+```{python}
+# Create a GeoDataFrame
+gdf["ZCTA5"] = gdf["ZCTA5"].astype(str)
+gdf_zip_counts = gdf.merge(zip_vs_counts, left_on="ZCTA5", right_on="ZIP_CD", how="left").fillna(0)
+gdf_zip_counts["Closure_Count"] = gdf_zip_counts["Closure_Count"].astype(float)
+
+# Make the Plot
+cmap = ListedColormap(["lightgrey", "yellow", "red"])
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+ax = gdf_zip_counts.plot(
+    column="Closure_Count",
+    cmap=cmap,
+    legend=True,
+    categorical=True,
+    legend_kwds={"loc": "lower left"},
+    linewidth=0.1,
+    edgecolor="black",
+    ax=ax
+)
+ax.set_title("Texas ZIP Codes with Hospital Closures")
+
+legend_labels = {"0.0": "Not Affected", "1.0": "Affected by 1 Closure", "2.0": "Affected by 2 Closures"}
+for txt in ax.get_legend().get_texts():
+    txt.set_text(legend_labels.get(txt.get_text(), txt.get_text()))
+
+plt.axis("off")
+plt.show()
+```
+For the number of directly affected zip codes:
+```{python}
+number_affected_zip = len(zip_vs_counts)
+print(f"There are {number_affected_zip} ZIP codes directly affected by a closure in 2016-2019.")
+```
+## 3. 
+```{python}
+# Create a GeoDataFrame of directly affected ZIP codes
+gdf_directly_affected = gdf_zip_counts[gdf_zip_counts["Closure_Count"] > 0]
+
+# Apply 10-mile buffer
+buffer_degree = 10/69  # convert 10 miles into degrees
+buffered_zones = gdf_directly_affected.copy()
+buffered_zones["geometry"] = buffered_zones.geometry.buffer(buffer_degree)
+
+# Spatial join to indentify all ZIP codes within the 10-mile buffer
+gdf_indirectly_affected = gpd.sjoin(
+    gdf, buffered_zones, how="inner", predicate="intersects")
+gdf_indirectly_affected = gdf_indirectly_affected[~gdf_indirectly_affected["ZCTA5_left"].isin(
+    gdf_directly_affected["ZCTA5"])]
+
+# Find how many
+gdf_indirectly_affected["ZCTA5_left"].nunique()
+```
+Therefore, there are 491 ZIP codes that are indirectly affected.
+
 4. 
+```{python}
+# Divide ZIP codes into 3 status
+gdf["Status"] = "Not Affected"
 
-## Reflecting on the exercise (10 pts) 
+gdf.loc[gdf["ZCTA5"].isin(gdf_directly_affected["ZCTA5"]), "Status"] = "Directly Affected"
+
+gdf.loc[gdf["ZCTA5"].isin(gdf_indirectly_affected["ZCTA5_left"]), "Status"] = "Indirectly Affected"
+
+# Step 3: Plot the choropleth
+cmap = ListedColormap(["red", "orange", "lightgrey"])
+
+fig, ax = plt.subplots(figsize=(10, 10))
+gdf.plot(
+    column="Status",
+    cmap=cmap,
+    legend=True,
+    legend_kwds={
+        "title": "ZIP Code Status",
+        "loc": "upper right",
+        "labels": [ "Directly Affected", "Indirectly Affected","Not Affected"]
+    },
+    edgecolor="black",
+    linewidth=0.1,
+    ax=ax
+)
+ax.set_title("Texas ZIP Codes Affected by Hospital Closures")
+
+plt.axis("off")
+plt.show()
+```
+
+# Reflecting on the exercise (10 pts) 
+## 1.
