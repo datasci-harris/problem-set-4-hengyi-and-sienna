@@ -538,3 +538,10 @@ plt.show()
 
 # Reflecting on the exercise (10 pts) 
 ## 1.
+
+## 2.
+The definitions of directly and indirectly affected areas make sense, as local closures have an immediate impact that diminishes over distance, thus indirectly affecting nearby areas. <br>
+
+However, this measure fails to consider the actual distance to hospitals and the number of hospitals within each zip code. For instance, the impact of one hospital closing in a zip code with eight hospitals is far less significant than in a zip code with only one hospital. Moreover, the 10-mile buffer radius does not accurately reflect the varied distances across Texas zip codes to the nearest hospitals; some zip codes inherently have hospitals, whereas others are more than 100 miles away from the nearest facility. For zip codes that already have hospitals, the closure of a nearby hospital has a much smaller impact than those zip codes where the nearest hospital is extremely far away. Therefore, this measure fails to reflect the real changes in zip-code-level hospital access accurately. <br>
+
+To improve this measure, I suggest layering the map of zip codes with hospital closures with maps showing distances to the nearest hospital and the number of active hospitals. Specifically, I recommend displaying three maps side by side: the first map only marking zip codes with hospital closures, the second map layering these zip codes as points on a map showing distances to the nearest hospital, and the third map layering these zip codes as points on a map showing the number of active hospitals. This way, readers can understand not only which zip codes have experienced hospital closures but also gauge the actual impact of these closures.
